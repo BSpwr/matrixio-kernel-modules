@@ -18,6 +18,7 @@
 #include <linux/moduleparam.h>
 #include <linux/of_irq.h>
 #include <linux/platform_device.h>
+#include <linux/version.h>
 #include <sound/core.h>
 #include <sound/pcm.h>
 #include <sound/pcm_params.h>
@@ -60,22 +61,6 @@ static const struct snd_soc_dapm_widget matrixio_dapm_widgets[] = {};
 
 static const struct snd_soc_dapm_route matrixio_dapm_routes[] = {};
 
-static int matrixio_codec_probe(struct snd_soc_codec *codec) { return 0; }
-
-static const struct snd_soc_codec_driver matrixio_soc_codec_driver = {
-
-    .probe = matrixio_codec_probe,
-    .component_driver =
-	{
-	    .controls = matrixio_snd_controls,
-	    .num_controls = ARRAY_SIZE(matrixio_snd_controls),
-	    .dapm_widgets = matrixio_dapm_widgets,
-	    .num_dapm_widgets = ARRAY_SIZE(matrixio_dapm_widgets),
-	    .dapm_routes = matrixio_dapm_routes,
-	    .num_dapm_routes = ARRAY_SIZE(matrixio_dapm_routes),
-	},
-};
-
 static struct snd_soc_dai_driver matrixio_dai_driver[] = {
     {
 	.name = "matrixio-pcm-out.0",
@@ -104,6 +89,21 @@ static struct snd_soc_dai_driver matrixio_dai_driver[] = {
 	    },
     }};
 
+#if LINUX_VERSION_CODE <= KERNEL_VERSION(4, 16, 0)
+static int matrixio_codec_probe(struct snd_soc_codec *codec) { return 0; }
+static const struct snd_soc_codec_driver matrixio_soc_codec_driver = {
+
+    .probe = matrixio_codec_probe,
+    .component_driver =
+	{
+	    .controls = matrixio_snd_controls,
+	    .num_controls = ARRAY_SIZE(matrixio_snd_controls),
+	    .dapm_widgets = matrixio_dapm_widgets,
+	    .num_dapm_widgets = ARRAY_SIZE(matrixio_dapm_widgets),
+	    .dapm_routes = matrixio_dapm_routes,
+	    .num_dapm_routes = ARRAY_SIZE(matrixio_dapm_routes),
+	},
+};
 static int matrixio_probe(struct platform_device *pdev)
 {
 	int ret;
@@ -127,7 +127,46 @@ static int matrixio_probe(struct platform_device *pdev)
 	}
 
 	return ret;
+};
+#else
+static int matrixio_component_probe(struct snd_soc_component *component)
+{
+	return 0;
 }
+static const struct snd_soc_component_driver matrixio_soc_component_driver = {
+    .probe = matrixio_component_probe,
+    .controls = matrixio_snd_controls,
+    .num_controls = ARRAY_SIZE(matrixio_snd_controls),
+    .dapm_widgets = matrixio_dapm_widgets,
+    .num_dapm_widgets = ARRAY_SIZE(matrixio_dapm_widgets),
+    .dapm_routes = matrixio_dapm_routes,
+    .num_dapm_routes = ARRAY_SIZE(matrixio_dapm_routes),
+};
+static int matrixio_probe(struct platform_device *pdev)
+{
+	int ret;
+
+	ret = devm_snd_soc_register_component(
+	    &pdev->dev, &matrixio_soc_component_driver, matrixio_dai_driver,
+	    ARRAY_SIZE(matrixio_dai_driver));
+	if (ret) {
+		dev_err(&pdev->dev,
+			"Failed to register MATRIXIO component: %d\n", ret);
+		return ret;
+	}
+
+	matrixio_soc_card.dev = &pdev->dev;
+
+	ret = devm_snd_soc_register_card(&pdev->dev, &matrixio_soc_card);
+	if (ret) {
+		dev_err(&pdev->dev, "Failed to register MATRIXIO card (%d)\n",
+			ret);
+		return ret;
+	}
+
+	return ret;
+};
+#endif
 
 static int matrixio_codec_remove(struct platform_device *pdev) { return 0; }
 
