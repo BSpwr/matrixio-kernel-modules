@@ -11,9 +11,9 @@
  *  option) any later version.
  */
 
-#include "matrixio-pcm.h"
 #include "fir_coeff.h"
 #include "matrixio-core.h"
+#include "matrixio-pcm.h"
 
 #include <linux/cdev.h>
 #include <linux/fs.h>
@@ -71,11 +71,12 @@ static void matrixio_pcm_capture_work(struct work_struct *wk)
 	mutex_lock(&ms->lock);
 
 	for (c = 0; c < ms->channels; c++)
-		ret = matrixio_read(
-		    ms->mio, MATRIXIO_MICARRAY_BASE +
-				 c * (MATRIXIO_MICARRAY_BUFFER_SIZE >> 1),
-		    MATRIXIO_MICARRAY_BUFFER_SIZE,
-		    &matrixio_buf[c][ms->position]);
+		ret =
+		    matrixio_read(ms->mio,
+				  MATRIXIO_MICARRAY_BASE +
+				      c * (MATRIXIO_MICARRAY_BUFFER_SIZE >> 1),
+				  MATRIXIO_MICARRAY_BUFFER_SIZE,
+				  &matrixio_buf[c][ms->position]);
 
 	ms->position += MATRIXIO_MICARRAY_BUFFER_SIZE >> 1;
 	mutex_unlock(&ms->lock);
@@ -257,10 +258,11 @@ static struct snd_pcm_ops matrixio_pcm_ops = {
 
 static int matrixio_pcm_new(struct snd_soc_pcm_runtime *rtd) { return 0; }
 
+#if LINUX_VERSION_CODE <= KERNEL_VERSION(4, 16, 0)
 static const struct snd_soc_platform_driver matrixio_soc_platform = {
-    .ops = &matrixio_pcm_ops, .pcm_new = matrixio_pcm_new,
+    .ops = &matrixio_pcm_ops,
+    .pcm_new = matrixio_pcm_new,
 };
-
 static int matrixio_pcm_platform_probe(struct platform_device *pdev)
 {
 	int ret;
@@ -294,6 +296,45 @@ static int matrixio_pcm_platform_probe(struct platform_device *pdev)
 
 	return 0;
 }
+#else
+static const struct snd_soc_component_driver matrixio_soc_component = {
+    .ops = &matrixio_pcm_ops,
+    .pcm_new = matrixio_pcm_new,
+};
+static int matrixio_pcm_platform_probe(struct platform_device *pdev)
+{
+	int ret;
+
+	ms = devm_kzalloc(&pdev->dev, sizeof(struct matrixio_substream),
+			  GFP_KERNEL);
+	if (!ms) {
+		dev_err(&pdev->dev, "data allocation");
+		return -ENOMEM;
+	}
+
+	ms->mio = dev_get_drvdata(pdev->dev.parent);
+
+	ms->substream = 0;
+
+	mutex_init(&ms->lock);
+
+	ms->irq = irq_of_parse_and_map(pdev->dev.of_node, 0);
+
+	ret = devm_snd_soc_register_component(&pdev->dev,
+					      &matrixio_soc_component, NULL, 0);
+	if (ret) {
+		dev_err(&pdev->dev,
+			"MATRIXIO sound SoC register component error: %d", ret);
+		return ret;
+	}
+
+	dev_set_drvdata(&pdev->dev, ms);
+
+	dev_notice(&pdev->dev, "MATRIXIO audio drive loaded (IRQ=%d)", ms->irq);
+
+	return 0;
+}
+#endif
 
 static const struct of_device_id snd_matrixio_pcm_of_match[] = {
     {
