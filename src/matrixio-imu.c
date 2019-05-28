@@ -17,6 +17,7 @@
 #include <linux/module.h>
 #include <linux/mutex.h>
 #include <linux/platform_device.h>
+#include <linux/version.h>
 
 #include "matrixio-core.h"
 
@@ -172,7 +173,9 @@ static int matrixio_imu_read_raw(struct iio_dev *indio_dev,
 static const struct iio_info matrixio_imu_info = {
     .read_raw = matrixio_imu_read_raw,
     .write_raw = matrixio_imu_write_raw,
+#if LINUX_VERSION_CODE <= KERNEL_VERSION(4, 14, 0)
     .driver_module = THIS_MODULE,
+#endif
 };
 
 static int matrixio_imu_probe(struct platform_device *pdev)
