@@ -141,12 +141,16 @@ static const struct snd_soc_component_driver matrixio_soc_component_driver = {
     .num_dapm_widgets = ARRAY_SIZE(matrixio_dapm_widgets),
     .dapm_routes = matrixio_dapm_routes,
     .num_dapm_routes = ARRAY_SIZE(matrixio_dapm_routes),
+    .idle_bias_on = 1,
+    .use_pmdown_time = 1,
+    .endianness = 1,
+    .non_legacy_dai_naming = 1,
 };
 static int matrixio_probe(struct platform_device *pdev)
 {
 	int ret;
 
-	ret = devm_snd_soc_register_component(
+	ret = snd_soc_register_component(
 	    &pdev->dev, &matrixio_soc_component_driver, matrixio_dai_driver,
 	    ARRAY_SIZE(matrixio_dai_driver));
 	if (ret) {
