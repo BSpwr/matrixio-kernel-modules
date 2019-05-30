@@ -141,7 +141,7 @@ static const struct snd_soc_component_driver matrixio_soc_component_driver = {
     .num_dapm_widgets = ARRAY_SIZE(matrixio_dapm_widgets),
     .dapm_routes = matrixio_dapm_routes,
     .num_dapm_routes = ARRAY_SIZE(matrixio_dapm_routes),
-    .idle_bias_on = 0,
+    .idle_bias_on = 1,
     .use_pmdown_time = 1,
     .endianness = 1,
     .non_legacy_dai_naming = 1,
@@ -150,7 +150,7 @@ static int matrixio_probe(struct platform_device *pdev)
 {
 	int ret;
 
-	ret = snd_soc_register_component(
+	ret = devm_snd_soc_register_component(
 	    &pdev->dev, &matrixio_soc_component_driver, matrixio_dai_driver,
 	    ARRAY_SIZE(matrixio_dai_driver));
 	if (ret) {
@@ -172,7 +172,7 @@ static int matrixio_probe(struct platform_device *pdev)
 };
 #endif
 
-static int matrixio_codec_remove(struct platform_device *pdev) { return 0; }
+// static int matrixio_codec_remove(struct platform_device *pdev) { return 0; }
 
 static const struct of_device_id snd_matrixio_codec_of_match[] = {
     {
@@ -188,7 +188,7 @@ static struct platform_driver matrixio_codec_driver = {
 	       .of_match_table = snd_matrixio_codec_of_match},
     .probe = matrixio_probe,
 
-    .remove = matrixio_codec_remove,
+    // .remove = matrixio_codec_remove,
 };
 
 module_platform_driver(matrixio_codec_driver);
